@@ -122,7 +122,18 @@ public class AHBot {
     }
 
     private void setupOperations() {
-        if(auctionMessage == null || Objects.requireNonNull(jda.getTextChannelById(notificationChannelId)).retrieveMessageById(auctionMessage.getId()).complete()== null) {
+        var createChannel = false;
+
+        if(auctionMessage == null) {
+            createChannel = true;
+        }
+        try{
+            jda.getTextChannelById(notificationChannelId).retrieveMessageById(auctionMessage.getId()).complete();
+        }catch (Exception e){
+            createChannel = true;
+        }
+
+        if(createChannel){
             auctionMessage = Objects.requireNonNull(jda.getTextChannelById(notificationChannelId))
                     .sendMessageEmbeds(AHBotEmbedFactory.createEmbed("Auction House", "Loading...", null)).complete();
         }
