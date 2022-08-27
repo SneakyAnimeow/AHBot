@@ -16,4 +16,7 @@ public class Auction {
 
     @SerializedName("claimed_bidders")
     private String[] claimedBidders;
+
+    @SerializedName("highest_bid_amount")
+    private String highestBidAmount;
 }

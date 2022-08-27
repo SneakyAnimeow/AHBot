@@ -12,7 +12,7 @@ import java.util.List;
 public class NewHypixelAPI extends HypixelAPI {
     private static final String BASE_URL = "https://api.hypixel.net/";
 
-    private HypixelHttpClient httpClient;
+    private final HypixelHttpClient httpClient;
 
     /**
      * @param httpClient a {@link HypixelHttpClient} that implements the HTTP behaviour for communicating with the API

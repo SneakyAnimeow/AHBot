@@ -1,18 +1,18 @@
 package club.anims.ahbot;
 
-import com.google.gson.Gson;
 import lombok.Getter;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import net.hypixel.api.HypixelAPI;
 import net.hypixel.api.apache.ApacheHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.security.auth.login.LoginException;
 import java.awt.*;
 import java.util.*;
@@ -21,22 +21,7 @@ public class AHBot {
     /**
      * The Factory of embeds.
      */
-    public static class AhBotEmbedFactory {
-        /**
-         * Creates a new embed.
-         * @param title The title of the embed.
-         * @param description The description of the embed.
-         * @return New embed.
-         */
-        public static MessageEmbed createEmbed(String title, String description) {
-            return new EmbedBuilder()
-                    .setTitle(title)
-                    .setDescription(description)
-                    .setColor(Color.CYAN)
-                    .setThumbnail("https://hypixel.net/attachments/1621344745339-png.2560259")
-                    .build();
-        }
-
+    public static class AHBotEmbedFactory {
         /**
          * Creates a new embed.
          * @param title The title of the embed.
@@ -44,13 +29,16 @@ public class AHBot {
          * @param fields The fields of the embed.
          * @return New embed.
          */
-        public static MessageEmbed createEmbed(String title, String description, Map<String, String> fields) {
+        public static MessageEmbed createEmbed(String title, String description, @Nullable Collection<? extends MessageEmbed.Field> fields) {
             var embedBuilder = new EmbedBuilder()
                     .setTitle(title)
                     .setDescription(description)
                     .setColor(Color.CYAN)
                     .setThumbnail("https://hypixel.net/attachments/1621344745339-png.2560259");
-            fields.forEach((k,v) -> embedBuilder.addField(k, v, false));
+
+            if(fields != null) {
+                fields.forEach(embedBuilder::addField);
+            }
 
             return embedBuilder.build();
         }
@@ -88,24 +76,37 @@ public class AHBot {
     /**
      * ID of notification channel.
      */
-    private final String notificationChannelId = "1012361523047436419";
+    private final String notificationChannelId;
 
-    private ArrayList<Auction> cachedAuctions = null;
+    /**
+     * Timer for scheduling TimerTasks.
+     */
+    private final Timer timer = new Timer();
 
-    private Timer timer = new Timer();
+    /**
+     * ID of SkyBlock profile.
+     */
+    private final String skyBlockProfile;
+
+    /**
+     * Message containing information about all auctions.
+     */
+    private Message auctionMessage;
 
     /**
      * Starts the bot.
      @param apiKey The Hypixel API key.
      @param botToken The Discord token.
      */
-    private AHBot(String apiKey, String botToken) throws LoginException {
+    private AHBot(String apiKey, String skyBlockProfile, String botToken, String notificationChannelId) throws LoginException {
         httpClient = new ApacheHttpClient(UUID.fromString(apiKey));
         hypixelAPI = new NewHypixelAPI(httpClient);
         jda = JDABuilder.createDefault(botToken)
                 .setEnabledIntents(GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
-                .setActivity(Activity.playing("Hypixel Skyblock"))
+                .setActivity(Activity.playing("Hypixel SkyBlock"))
                 .build();
+        this.notificationChannelId = notificationChannelId;
+        this.skyBlockProfile = skyBlockProfile;
         instance = this;
 
         timer.schedule(new TimerTask() {
@@ -113,65 +114,56 @@ public class AHBot {
             public void run() {
                 try{
                     instance.setupOperations();
-                }catch (Exception ignored){}
+                }catch (Exception e){
+                    LOGGER.error("Error while setting up operations", e);
+                }
             }
         }, 0, 10000);
     }
 
     private void setupOperations() {
-        var auctions = hypixelAPI.getSkyBlockAuctionByProfile("694236143d514479b9ab2fd5c36ae723");
-        var soldAuctionsUuids = new ArrayList<String>();
-
-        if(cachedAuctions != null) {
-            for(var i=0; i<auctions.size(); i++){
-                var finalI = i;
-
-                if(cachedAuctions.stream().noneMatch(auction -> Objects.equals(auction.getUuid(), auctions.get(finalI).getUuid()))){
-                    var embed = AhBotEmbedFactory.createEmbed("New Auction", "Item Name: "+auctions.get(finalI).getItemName(),
-                            Map.of(
-                                    "Price", auctions.get(finalI).getStartingBid()
-                            ));
-                    jda.getTextChannelById(notificationChannelId).sendMessageEmbeds(embed).queue();
-                }
-
-                if(cachedAuctions.stream().anyMatch(auction -> Objects.equals(auction.getUuid(), auctions.get(finalI).getUuid()))){
-                    var cachedAction = cachedAuctions.stream().filter(auction -> Objects.equals(auction.getUuid(), auctions.get(finalI).getUuid())).findFirst().get();
-                    if(cachedAction.getClaimedBidders().length<1 && auctions.get(finalI).getClaimedBidders().length>0){
-                        soldAuctionsUuids.add(auctions.get(finalI).getUuid());
-                    }
-                }
-            }
-
-            for(var i=0; i<cachedAuctions.size(); i++){
-                var finalI = i;
-
-                if(auctions.stream().noneMatch(auction -> Objects.equals(auction.getUuid(), cachedAuctions.get(finalI).getUuid()))){
-                    var embed = AhBotEmbedFactory.createEmbed("Auction Claimed or Removed", "Item Name: "+cachedAuctions.get(finalI).getItemName(),
-                            Map.of(
-                                    "Price", cachedAuctions.get(finalI).getStartingBid()
-                            ));
-                    jda.getTextChannelById(notificationChannelId).sendMessageEmbeds(embed).queue();
-                }
-            }
-
-            soldAuctionsUuids.forEach(soldActionUuid -> {
-                var auction = cachedAuctions.stream().filter(cachedAuction -> Objects.equals(cachedAuction.getUuid(), soldActionUuid)).findFirst().get();
-                var embed = AhBotEmbedFactory.createEmbed("Auction Bought", "Item Name: "+auction.getItemName(), Map.of(
-                        "Price", auction.getStartingBid()
-                ));
-                jda.getTextChannelById(notificationChannelId).sendMessageEmbeds(embed).queue();
-            });
+        if(auctionMessage == null || Objects.requireNonNull(jda.getTextChannelById(notificationChannelId)).retrieveMessageById(auctionMessage.getId()).complete()== null) {
+            auctionMessage = Objects.requireNonNull(jda.getTextChannelById(notificationChannelId))
+                    .sendMessageEmbeds(AHBotEmbedFactory.createEmbed("Auction House", "Loading...", null)).complete();
         }
-        cachedAuctions = new ArrayList<>(auctions);
+
+        var auctions = new ArrayList<>(hypixelAPI.getSkyBlockAuctionByProfile(skyBlockProfile));
+
+        //phantom auction fix
+        auctions.removeIf(auction -> auction.getUuid().equals("9b242e2aca794804a3da61a9c3671adb"));
+
+        var fields = new ArrayList<MessageEmbed.Field>();
+
+        var info = new StringBuilder();
+
+        for(var i=0; i<auctions.size(); i++) {
+            info.append(String.format("```Name: %s\nLowest Bid: %s\nStatus: %s\nHighest Bid: %s\n```", auctions.get(i).getItemName(), auctions.get(i).getStartingBid(),
+                    auctions.get(i).getHighestBidAmount(),
+                    (auctions.get(i).getClaimedBidders().length < 1 ? "Available" : "Sold")));
+
+            if(i%2 == 0) {
+                fields.add(new MessageEmbed.Field("", info.toString(), false));
+                info = new StringBuilder();
+            }
+        }
+
+        if(info.length() > 0) {
+            fields.add(new MessageEmbed.Field("", info.toString(), false));
+        }
+
+        auctionMessage.editMessageEmbeds(AHBotEmbedFactory.createEmbed("Auction House",
+                "Unsold Auctions: "+ auctions.stream().filter(auction -> auction.getClaimedBidders().length<1).count(),
+                fields)).queue();
     }
 
     public static void main(String[] args) {
-        if(args.length != 2){
-            System.out.println("Usage: java -jar ahbot.jar <apiKey> <botToken>");
+        if(args.length < 4){
+            System.out.println("Usage: java -jar ahbot.jar <apiKey> <skyBlockProfile> <botToken> <notificationChannelId>");
             System.exit(1);
         }
+
         try{
-            instance = new AHBot(args[0], args[1]);
+            instance = new AHBot(args[0], args[1], args[2], args[3]);
         }catch (LoginException e){
             LOGGER.error("Failed to login to Discord", e);
             System.exit(1);
