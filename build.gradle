@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+    id 'application'
+    id "io.freefair.lombok" version "6.5.0.3"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+group 'club.anims'
+version '1.0-SNAPSHOT'
+
+application{
+    mainClassName('club.anims.ahbot.AHBot')
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.hypixel.net/repository/Hypixel/' }
+}
+
+dependencies {
+    implementation 'net.hypixel:hypixel-api-transport-apache:4.2.1'
+    implementation 'net.dv8tion:JDA:5.0.0-alpha.18'
+    implementation 'org.slf4j:slf4j-api:2.0.0'
+    implementation 'org.slf4j:slf4j-simple:2.0.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+test {
+    useJUnitPlatform()
+}
