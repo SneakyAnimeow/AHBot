@@ -137,7 +137,7 @@ public class AHBot {
         var info = new StringBuilder();
 
         for(var i=0; i<auctions.size(); i++) {
-            info.append(String.format("```Name: %s\nLowest Bid: %s\nStatus: %s\nHighest Bid: %s\n```", auctions.get(i).getItemName(), auctions.get(i).getStartingBid(),
+            info.append(String.format("```Name: %s\nLowest Bid: %s\nHighest Bid: %s\nStatus: %s\n```", auctions.get(i).getItemName(), auctions.get(i).getStartingBid(),
                     auctions.get(i).getHighestBidAmount(),
                     (auctions.get(i).getClaimedBidders().length < 1 ? "Available" : "Sold")));
 
