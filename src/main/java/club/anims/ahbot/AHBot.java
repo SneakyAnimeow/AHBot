@@ -141,7 +141,7 @@ public class AHBot {
         var auctions = new ArrayList<>(hypixelAPI.getSkyBlockAuctionByProfile(skyBlockProfile));
 
         //phantom auction fix
-        auctions.removeIf(auction -> auction.getUuid().equals("9b242e2aca794804a3da61a9c3671adb"));
+        auctions.removeIf(auction -> !auction.getHighestBidAmount().equals("0") && auction.getClaimedBidders().length < 1);
 
         var fields = new ArrayList<MessageEmbed.Field>();
 
