@@ -50,6 +50,11 @@ public class AHBot {
     private static final Logger LOGGER = LoggerFactory.getLogger(AHBot.class);
 
     /**
+     * Period between sending next notification.
+     */
+    private static final int NEXT_NOTIFICATION_PERIOD = 2880;
+
+    /**
      * The AHBot instance.
      */
     @Getter
@@ -93,12 +98,19 @@ public class AHBot {
      */
     private Message auctionMessage;
 
+    private final String[] usersToNotify;
+
+    /**
+     * Current time between notification periods.
+     */
+    private int nextNotificationCounter;
+
     /**
      * Starts the bot.
      @param apiKey The Hypixel API key.
      @param botToken The Discord token.
      */
-    private AHBot(String apiKey, String skyBlockProfile, String botToken, String notificationChannelId) throws LoginException {
+    private AHBot(String apiKey, String skyBlockProfile, String botToken, String notificationChannelId, String[] usersToNotify) throws LoginException {
         httpClient = new ApacheHttpClient(UUID.fromString(apiKey));
         hypixelAPI = new NewHypixelAPI(httpClient);
         jda = JDABuilder.createDefault(botToken)
@@ -107,6 +119,7 @@ public class AHBot {
                 .build();
         this.notificationChannelId = notificationChannelId;
         this.skyBlockProfile = skyBlockProfile;
+        this.usersToNotify = usersToNotify;
         instance = this;
 
         timer.schedule(new TimerTask() {
@@ -140,8 +153,8 @@ public class AHBot {
 
         var auctions = new ArrayList<>(hypixelAPI.getSkyBlockAuctionByProfile(skyBlockProfile));
 
-        //phantom auction fix
-        auctions.removeIf(auction -> !auction.getHighestBidAmount().equals("0") && auction.getClaimedBidders().length < 1);
+        //ultimate phantom auctions fix
+        auctions.removeIf(auction -> !auction.getHighestBidAmount().equals("0"));
 
         var fields = new ArrayList<MessageEmbed.Field>();
 
@@ -163,18 +176,29 @@ public class AHBot {
         }
 
         auctionMessage.editMessageEmbeds(AHBotEmbedFactory.createEmbed("Auction House",
-                "Unsold Auctions: "+ auctions.stream().filter(auction -> auction.getClaimedBidders().length<1).count(),
+                "Available Auctions: "+ auctions.stream().filter(auction -> auction.getClaimedBidders().length<1).count(),
                 fields)).queue();
+
+        if(auctions.stream().noneMatch(auction -> auction.getClaimedBidders().length < 1)){
+            if(nextNotificationCounter >= NEXT_NOTIFICATION_PERIOD){
+                Arrays.stream(usersToNotify).forEach(user ->
+                        Objects.requireNonNull(jda.getUserById(user)).openPrivateChannel().complete().sendMessage("We've run out of auctions!").queue());
+                nextNotificationCounter = 0;
+            }
+            nextNotificationCounter++;
+        }else{
+            nextNotificationCounter = NEXT_NOTIFICATION_PERIOD;
+        }
     }
 
     public static void main(String[] args) {
         if(args.length < 4){
-            System.out.println("Usage: java -jar ahbot.jar <apiKey> <skyBlockProfile> <botToken> <notificationChannelId>");
+            System.out.println("Usage: java -jar ahbot.jar <apiKey> <skyBlockProfile> <botToken> <notificationChannelId> <userIds...>");
             System.exit(1);
         }
 
         try{
-            instance = new AHBot(args[0], args[1], args[2], args[3]);
+            instance = new AHBot(args[0], args[1], args[2], args[3], Arrays.copyOfRange(args, 4, args.length));
         }catch (LoginException e){
             LOGGER.error("Failed to login to Discord", e);
             System.exit(1);
