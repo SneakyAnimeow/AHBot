@@ -98,6 +98,9 @@ public class AHBot {
      */
     private Message auctionMessage;
 
+    /**
+     * Array of users to notify.
+     */
     private final String[] usersToNotify;
 
     /**
