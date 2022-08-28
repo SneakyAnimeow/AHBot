@@ -103,7 +103,7 @@ public class AHBot {
     /**
      * Current time between notification periods.
      */
-    private int nextNotificationCounter;
+    private int nextNotificationCounter = NEXT_NOTIFICATION_PERIOD;
 
     /**
      * Starts the bot.
@@ -181,8 +181,9 @@ public class AHBot {
 
         if(auctions.stream().noneMatch(auction -> auction.getClaimedBidders().length < 1)){
             if(nextNotificationCounter >= NEXT_NOTIFICATION_PERIOD){
-                Arrays.stream(usersToNotify).forEach(user ->
-                        Objects.requireNonNull(jda.getUserById(user)).openPrivateChannel().complete().sendMessage("We've run out of auctions!").queue());
+                try{
+                    Arrays.stream(usersToNotify).forEach(user -> Objects.requireNonNull(jda.getUserById(user)).openPrivateChannel().complete().sendMessage("We've run out of auctions!").queue());
+                }catch (Exception ignored){}
                 nextNotificationCounter = 0;
             }
             nextNotificationCounter++;
