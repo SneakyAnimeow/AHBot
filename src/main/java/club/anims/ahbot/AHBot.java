@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Icon;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import javax.security.auth.login.LoginException;
 import java.awt.*;
+import java.io.IOException;
 import java.util.*;
 
 public class AHBot {
@@ -109,6 +111,11 @@ public class AHBot {
     private int nextNotificationCounter = NEXT_NOTIFICATION_PERIOD;
 
     /**
+     * The flag indicating whether there's no auctions.
+     */
+    private boolean noAuctions = false;
+
+    /**
      * Starts the bot.
      @param apiKey The Hypixel API key.
      @param botToken The Discord token.
@@ -140,7 +147,7 @@ public class AHBot {
         }, 0, 10000);
     }
 
-    private void setupOperations() {
+    private void setupOperations() throws IOException {
         var createChannel = false;
 
         if(auctionMessage == null) {
@@ -186,6 +193,11 @@ public class AHBot {
                 fields)).queue();
 
         if(auctions.stream().noneMatch(auction -> auction.getClaimedBidders().length < 1)){
+            if(!noAuctions){
+                jda.getSelfUser().getManager().setAvatar(Icon.from(Objects.requireNonNull(getClass().getResourceAsStream("/sad.jpg")))).complete();
+                noAuctions = true;
+            }
+
             if(nextNotificationCounter >= NEXT_NOTIFICATION_PERIOD){
                 try{
                     Arrays.stream(usersToNotify).forEach(user -> jda.retrieveUserById(user).complete()
@@ -195,6 +207,11 @@ public class AHBot {
             }
             nextNotificationCounter++;
         }else{
+            if(noAuctions){
+                jda.getSelfUser().getManager().setAvatar(Icon.from(Objects.requireNonNull(getClass().getResourceAsStream("/happy.jpg")))).complete();
+                noAuctions = false;
+            }
+
             nextNotificationCounter = NEXT_NOTIFICATION_PERIOD;
         }
     }
