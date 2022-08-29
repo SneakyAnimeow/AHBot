@@ -112,6 +112,9 @@ public class AHBot {
      * Starts the bot.
      @param apiKey The Hypixel API key.
      @param botToken The Discord token.
+     @param notificationChannelId The ID of the notification channel.
+     @param skyBlockProfile The SkyBlock profile.
+     @param usersToNotify The users to notify.
      */
     private AHBot(String apiKey, String skyBlockProfile, String botToken, String notificationChannelId, String[] usersToNotify) throws LoginException {
         httpClient = new ApacheHttpClient(UUID.fromString(apiKey));
@@ -185,7 +188,7 @@ public class AHBot {
         if(auctions.stream().noneMatch(auction -> auction.getClaimedBidders().length < 1)){
             if(nextNotificationCounter >= NEXT_NOTIFICATION_PERIOD){
                 try{
-                    Arrays.stream(usersToNotify).forEach(user -> Objects.requireNonNull(jda.getUserById(user)).openPrivateChannel().complete().sendMessage("We've run out of auctions!").queue());
+                    Arrays.stream(usersToNotify).forEach(user -> jda.retrieveUserById(user).complete().openPrivateChannel().complete().sendMessage("We've run out of auctions!").queue());
                 }catch (Exception ignored){}
                 nextNotificationCounter = 0;
             }
